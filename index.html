@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Lane Sentinel - Live Stream</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #000;
+        }
+        .video-overlay {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10;
+        }
+        #results {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.375rem;
+            padding: 1rem;
+            background-color: #f8fafc;
+        }
+        .result-entry {
+            padding: 0.75rem;
+            margin-bottom: 0.5rem;
+            border-radius: 0.25rem;
+            background-color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .result-time {
+            font-size: 0.75rem;
+            color: #64748b;
+            margin-bottom: 0.25rem;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(59, 130, 246, 0.3);
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md">
+        <div class="container mx-auto px-4 py-4">
+            <h1 class="text-2xl font-bold">Bike Lane Sentinel</h1>
+            <p class="text-sm">Live monitoring of bike lane activity</p>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-6">
+        <!-- Video Stream Section -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <div class="video-container">
+                <img id="stream" src="https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image" class="w-full" alt="Live Traffic Camera Feed">
+                <div class="video-overlay">
+                    <span>Live Feed - Refreshing every 2 seconds</span>
+                </div>
+            </div>
+            
+            <div class="mt-4 flex flex-wrap gap-2 justify-center">
+                <button id="analyzeBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-md transition">
+                    Analyze Current Frame
+                </button>
+                <button id="clearResultsBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-md transition">
+                    Clear Results
+                </button>
+            </div>
+        </div>
+
+        <!-- Analysis Results -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-xl font-semibold mb-4">Analysis Results</h2>
+            <div id="results">
+                <p class="text-gray-500 text-center py-4">Click 'Analyze Current Frame' to analyze the camera feed.</p>
+            </div>
+        </div>
+    </main>
+
+    <footer class="bg-gray-100 border-t border-gray-200 mt-8">
+        <div class="container mx-auto px-4 py-4 text-center text-gray-600 text-xs">
+            <p>Bike Lane Sentinel &copy; 2023 | Using Moondream.ai for analysis</p>
+        </div>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const streamImg = document.getElementById('stream');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const clearResultsBtn = document.getElementById('clearResultsBtn');
+        const resultsDiv = document.getElementById('results');
+        
+        // Refresh the stream image every 5 seconds
+        function refreshStream() {
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            streamImg.src = `https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image?t=${timestamp}`;
+            
+            // Schedule next refresh
+            setTimeout(refreshStream, 2000);
+        }
+        
+        // Start refreshing the stream
+        refreshStream();
+        
+        // Event Listeners
+        analyzeBtn.addEventListener('click', analyzeFrame);
+        clearResultsBtn.addEventListener('click', () => {
+            resultsDiv.innerHTML = '<p class="text-gray-500 text-center py-4">Click \'Analyze Current Frame\' to analyze the camera feed.</p>';
+        });
+        
+        // Analyze the current frame
+        async function analyzeFrame() {
+            const loadingId = showLoading('Analyzing frame...');
+            
+            try {
+                // In a real implementation, you would send the image to your backend for analysis
+                // For now, we'll simulate the analysis with a mock response
+                const result = await simulateMoondreamAnalysis();
+                
+                if (result.success) {
+                    displayAnalysisResult(result, 'Frame Analysis');
+                } else {
+                    displayError('Analysis failed. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error analyzing frame:', error);
+                displayError('An error occurred during analysis.');
+            }
+        }
+        
+        // Simulate Moondream.ai API call
+        function simulateMoondreamAnalysis() {
+            return new Promise((resolve) => {
+                // Simulate API call delay
+                setTimeout(() => {
+                    const analysisOptions = [
+                        "Detected a vehicle parked in the bike lane.",
+                        "No vehicles detected in the bike lane.",
+                        "Possible obstruction in the bike lane.",
+                        "Bike lane appears clear.",
+                        "Pedestrian detected in the bike lane.",
+                        "Multiple vehicles blocking the bike lane."
+                    ];
+                    
+                    const randomAnalysis = analysisOptions[Math.floor(Math.random() * analysisOptions.length)];
+                    
+                    resolve({
+                        success: true,
+                        analysis: randomAnalysis,
+                        timestamp: new Date().toISOString()
+                    });
+                }, 1500); // 1.5 second delay to simulate API call
+            });
+        }
+        
+        // UI Helper Functions
+        function showLoading(message, id = '') {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'result-entry';
+            if (id) loadingDiv.id = id;
+            
+            loadingDiv.innerHTML = `
+                <div class="result-time">${new Date().toLocaleTimeString()}</div>
+                <div class="flex items-center">
+                    <div class="loading animate-spin rounded-full border-t-blue-500 border-r-blue-500 border-b-blue-500 border-l-blue-100 border-4 h-5 w-5 mr-2"></div>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            resultsDiv.insertBefore(loadingDiv, resultsDiv.firstChild);
+            return id || 'loading';
+        }
+        
+        function displayAnalysisResult(result, analysisType) {
+            // Remove any existing loading indicator
+            const loadingElement = document.getElementById('loading');
+            if (loadingElement) {
+                loadingElement.remove();
+            }
+            
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'result-entry';
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            resultDiv.innerHTML = `
+                <div class="result-time">${timestamp} • ${analysisType}</div>
+                <div class="font-medium">${result.analysis}</div>
+                <div class="mt-2 text-sm text-gray-600">
+                    <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Moondream.ai</span>
+                </div>
+            `;
+            
+            // Add to the top of results
+            resultsDiv.insertBefore(resultDiv, resultsDiv.firstChild);
+            
+            // If results container was empty, remove the placeholder
+            const placeholder = resultsDiv.querySelector('p.text-gray-500');
+            if (placeholder) {
+                placeholder.remove();
+            }
+        }
+        
+        function displayError(message, id = '') {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'result-entry bg-red-50 border-l-4 border-red-500';
+            if (id) errorDiv.id = id;
+            
+            const timestamp = new Date().toLocaleTimeString();
+            
+            errorDiv.innerHTML = `
+                <div class="result-time">${timestamp}</div>
+                <div class="text-red-700">
+                    <span class="font-medium">Error:</span> ${message}
+                </div>
+            `;
+            
+            resultsDiv.insertBefore(errorDiv, resultsDiv.firstChild);
+        }
+        
+        // Clean up on page unload
+        window.addEventListener('beforeunload', () => {
+            stopStream();
+            stopLiveAnalysis();
+        });
+    </script>
+</body>
+</html
