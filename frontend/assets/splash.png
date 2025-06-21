@@ -1,0 +1,4 @@
+// This is a placeholder for the splash.png file
+// In a real app, this would be an actual PNG image
+// For the hackathon, we're using a text file to simulate the presence of this file
+// which will prevent errors during development
