@@ -1,8 +1,9 @@
 // Test setup file
 import dotenv from 'dotenv';
+import path from 'path';
 
-// Load environment variables for testing
-dotenv.config({ path: '.env' });
+// Load environment variables for testing from the backend directory
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Set test environment
 process.env.NODE_ENV = 'test';
