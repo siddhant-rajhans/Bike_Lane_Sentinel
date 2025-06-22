@@ -4,12 +4,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { BikeLaneController } from './controllers/bikeLaneController';
 import { AppConfig } from './types';
 
-// Load environment variables
-dotenv.config();
+// Load environment variables from the backend directory
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 // Configuration
 const config: AppConfig = {
@@ -61,6 +62,14 @@ app.use('/api/', limiter);
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Serve static files from the root directory (for index.html)
+app.use(express.static(path.join(__dirname, '..')));
+
+// Serve index.html for the root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
+});
 
 // File upload middleware
 const upload = multer({
@@ -126,7 +135,8 @@ app.use('*', (req, res) => {
 
 // Start server
 app.listen(config.port, () => {
-  console.log(`🚴 Bike Lane Sentinel API running on port ${config.port}`);
+  console.log(`�� Bike Lane Sentinel running on port ${config.port}`);
+  console.log(`🌐 Frontend: http://localhost:${config.port}/`);
   console.log(`📊 Health check: http://localhost:${config.port}/api/health`);
   console.log(`🔍 Detection endpoint: http://localhost:${config.port}/api/detect-bike-lane-violations`);
 });
