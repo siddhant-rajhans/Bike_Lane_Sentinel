@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, ScrollView, View, Image } from 'react-native';
-import { Title, Paragraph, Card, Chip, Divider, Appbar } from 'react-native-paper';
+import { Title, Paragraph, Card, Chip, Divider } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const ViolationDetailsScreen = ({ route, navigation }) => {
@@ -8,12 +8,6 @@ const ViolationDetailsScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Appbar.Header>
-        <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={`Violation #${violation.id.substring(0, 8)}...`} />
-        <Appbar.Action icon="share" onPress={() => {}} />
-      </Appbar.Header>
-
       <ScrollView style={styles.scrollView}>
         <Card style={styles.card}>
           <Card.Cover 
@@ -21,7 +15,7 @@ const ViolationDetailsScreen = ({ route, navigation }) => {
               typeof violation.imageUrl === 'string' && violation.imageUrl.startsWith('data:')
                 ? { uri: violation.imageUrl }
                 : typeof violation.imageUrl === 'string'
-                  ? { uri: violation.imageUrl }
+                  ? { uri: `${violation.imageUrl}?t=${Date.now()}` }
                   : violation.imageUrl
             } 
             style={styles.image}
