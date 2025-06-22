@@ -74,8 +74,14 @@
             <div class="video-container">
                 <img id="stream" src="https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image" class="w-full" alt="Live Traffic Camera Feed">
                 <div class="video-overlay">
-                    <span>Live Feed - Refreshing every 2 seconds</span>
+                    <span id="camera-info">Live Feed - Refreshing every 2 seconds</span>
                 </div>
+            </div>
+            <div class="mt-4 mb-4">
+                <label for="camera-select" class="block text-sm font-medium text-gray-700 mb-2">Select Camera:</label>
+                <select id="camera-select" class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Loading cameras...</option>
+                </select>
             </div>
             
             <div class="mt-4 flex flex-wrap gap-2 justify-center">
@@ -109,24 +115,117 @@
         const analyzeBtn = document.getElementById('analyzeBtn');
         const clearResultsBtn = document.getElementById('clearResultsBtn');
         const resultsDiv = document.getElementById('results');
+        const cameraSelect = document.getElementById('camera-select');
+        const cameraInfo = document.getElementById('camera-info');
         
-        // Refresh the stream image every 5 seconds
+        // Stream variables
+        let refreshTimeout;
+        
+        // API endpoints
+        const API_BASE = 'http://localhost:3000/api';
+        const CAMERAS_ENDPOINT = `${API_BASE}/cameras`;
+        
+        // Camera data variables
+        let cameras = [];
+        let currentCamera = null;
+        
+        // Fetch the list of cameras from our backend API
+        async function loadCameras() {
+            try {
+                const response = await fetch(`${CAMERAS_ENDPOINT}?nearBikeLanes=true`);
+                const data = await response.json();
+                
+                if (!data || !data.success) {
+                    throw new Error('Failed to fetch camera data');
+                }
+                
+                cameras = data.data;
+                populateCameraDropdown(cameras);
+                
+                // Select the first camera by default
+                if (cameras.length > 0) {
+                    cameraSelect.value = cameras[0].id;
+                    selectCamera(cameras[0].id);
+                } else {
+                    // If no cameras, use the default one
+                    refreshStream();
+                }
+            } catch (error) {
+                console.error('Error loading cameras:', error);
+                displayError('Failed to load cameras. Using default camera: ' + error.message);
+                // Fall back to default camera
+                refreshStream();
+            }
+        }
+        
+        // Populate the camera dropdown with the fetched cameras
+        function populateCameraDropdown(cameras) {
+            // Clear existing options
+            cameraSelect.innerHTML = '';
+            
+            if (cameras.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No cameras available';
+                cameraSelect.appendChild(option);
+                return;
+            }
+            
+            // Add each camera as an option
+            cameras.forEach(camera => {
+                const option = document.createElement('option');
+                option.value = camera.id;
+                option.textContent = camera.name || `Camera ${camera.id}`;
+                cameraSelect.appendChild(option);
+            });
+        }
+        
+        // Handle camera selection change
+        function selectCamera(cameraId) {
+            // Find the selected camera data
+            currentCamera = cameras.find(camera => camera.id === cameraId);
+            
+            if (!currentCamera) {
+                console.error('Camera not found:', cameraId);
+                return;
+            }
+            
+            // Update the camera info overlay
+            cameraInfo.textContent = `${currentCamera.name || 'Camera ' + cameraId} - Refreshing every 2 seconds`;
+            
+            // Stop existing stream and start new one
+            if (refreshTimeout) {
+                clearTimeout(refreshTimeout);
+            }
+            refreshStream();
+        }
+        
+        // Refresh the stream image
         function refreshStream() {
             // Add timestamp to prevent caching
             const timestamp = new Date().getTime();
-            streamImg.src = `https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image?t=${timestamp}`;
+            
+            if (currentCamera) {
+                streamImg.src = `${currentCamera.imageUrl}?t=${timestamp}`;
+            } else {
+                // Default camera if no camera is selected
+                streamImg.src = `https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image?t=${timestamp}`;
+            }
             
             // Schedule next refresh
-            setTimeout(refreshStream, 2000);
+            refreshTimeout = setTimeout(refreshStream, 2000);
         }
         
-        // Start refreshing the stream
-        refreshStream();
+        // Initialize by loading cameras
+        loadCameras();
         
         // Event Listeners
         analyzeBtn.addEventListener('click', analyzeFrame);
         clearResultsBtn.addEventListener('click', () => {
             resultsDiv.innerHTML = '<p class="text-gray-500 text-center py-4">Click \'Analyze Current Frame\' to analyze the camera feed.</p>';
+        });
+        cameraSelect.addEventListener('change', (e) => {
+            selectCamera(e.target.value);
         });
         
         // Analyze the current frame
@@ -134,9 +233,37 @@
             const loadingId = showLoading('Analyzing frame...');
             
             try {
-                // In a real implementation, you would send the image to your backend for analysis
-                // For now, we'll simulate the analysis with a mock response
+                // If using real backend, we would use this code:
+                /*
+                const formData = new FormData();
+                // Add the camera ID if we have one
+                if (currentCamera && currentCamera.id) {
+                    formData.append('cameraId', currentCamera.id);
+                }
+                
+                // Convert img URL to blob
+                const response = await fetch(streamImg.src);
+                const blob = await response.blob();
+                formData.append('image', blob, 'camera_frame.jpg');
+                
+                // Send to backend
+                const backendResponse = await fetch(`${API_BASE}/detect-bike-lane-violations`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await backendResponse.json();
+                */
+                
+                // For the hackathon demo, we'll simulate the analysis
                 const result = await simulateMoondreamAnalysis();
+                
+                // Add camera info to the result if available
+                if (currentCamera) {
+                    result.cameraName = currentCamera.name;
+                    result.cameraId = currentCamera.id;
+                    result.analysis += ` [Camera: ${currentCamera.name}]`;
+                }
                 
                 if (result.success) {
                     displayAnalysisResult(result, 'Frame Analysis');
@@ -204,8 +331,13 @@
             
             const timestamp = new Date().toLocaleTimeString();
             
+            // Determine if we have camera information to display
+            const cameraInfo = result.cameraName ? 
+                `<div class="text-sm text-gray-600 mb-1">Camera: ${result.cameraName}</div>` : '';
+            
             resultDiv.innerHTML = `
                 <div class="result-time">${timestamp} • ${analysisType}</div>
+                ${cameraInfo}
                 <div class="font-medium">${result.analysis}</div>
                 <div class="mt-2 text-sm text-gray-600">
                     <span class="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">Moondream.ai</span>

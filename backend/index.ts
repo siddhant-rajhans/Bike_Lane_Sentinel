@@ -35,12 +35,15 @@ const app = express();
 // Security middleware
 app.use(helmet());
 
-// CORS middleware
+// CORS middleware - Allow requests from any origin during development
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://yourdomain.com'] // Replace with your domain
-    : true,
-  credentials: true
+    ? ['https://localhost'] // Replace with your production domain
+    : '*', // Allow any origin in development
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 200
 }));
 
 // Rate limiting
@@ -79,10 +82,20 @@ const upload = multer({
 // Routes
 app.get('/api/health', (req, res) => bikeLaneController.healthCheck(req, res));
 
+// Bike Lane Detection
 app.post('/api/detect-bike-lane-violations', 
   upload.single('image'), 
   (req, res) => bikeLaneController.detectBikeLaneViolations(req, res)
 );
+
+// NYC Traffic Camera routes
+app.get('/api/cameras', (req, res) => bikeLaneController.getTrafficCameras(req, res));
+app.get('/api/cameras/:id/feed', (req, res) => bikeLaneController.getCameraFeed(req, res));
+
+// Violation routes
+app.get('/api/violations', (req, res) => bikeLaneController.getViolations(req, res));
+app.get('/api/violations/:id', (req, res) => bikeLaneController.getViolationById(req, res));
+app.post('/api/violations/:id/status', (req, res) => bikeLaneController.updateViolationStatus(req, res));
 
 // Error handling middleware
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
@@ -97,7 +110,7 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
     }
   }
   
-  res.status(500).json({
+  return res.status(500).json({
     success: false,
     error: 'Internal server error'
   });

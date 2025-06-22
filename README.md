@@ -50,7 +50,8 @@ Bike Lane Sentinel automates the detection and reporting process through:
   - Map view showing violation hotspots
   - Evidence viewer with camera snapshots
   - Detailed violation information
-  - Optional user reporting functionality
+  - Camera integration for user-reported violations
+  - Location-based violation reporting
 
 ## Mobile Architecture
 Our React Native mobile implementation provides:

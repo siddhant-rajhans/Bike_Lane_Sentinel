@@ -1,0 +1,122 @@
+// Fetch a single violation by ID
+export const fetchViolation = async (id) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/violations/${id}`);
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(`Failed to fetch violation with ID ${id}`);
+    }
+    
+    const violation = response.data.data;
+    
+    return {
+      id: violation.id,
+      imageUrl: violation.imageUrl,
+      vehicleType: violation.vehicleType,
+      licensePlate: violation.licensePlate || 'Unknown',
+      location: violation.location,
+      locationName: getLocationName(violation.location, violation.cameraId),
+      address: getAddress(violation.location, violation.cameraId),
+      date: formatDate(violation.timestamp),
+      time: formatTime(violation.timestamp),
+      timestamp: violation.timestamp,
+      status: violation.status,
+      notes: violation.notes || '',
+      confidence: violation.confidence
+    };
+  } catch (error) {
+    console.error(`Error fetching violation with ID ${id}:`, error);
+    throw error;
+  }
+};
+
+// Report a new violation
+export const reportViolation = async (violationData) => {
+  try {
+    const formData = new FormData();
+    
+    // Append image file
+    if (violationData.image) {
+      const localUri = violationData.image.uri;
+      const filename = localUri.split('/').pop();
+      
+      // Infer the type of the image
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      
+      formData.append('image', { uri: localUri, name: filename, type });
+    }
+    
+    // Append camera ID if present
+    if (violationData.cameraId) {
+      formData.append('cameraId', violationData.cameraId);
+    }
+    
+    const response = await axios.post(
+      `${API_BASE_URL}/detect-bike-lane-violations`, 
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    
+    if (!response.data || !response.data.success) {
+      throw new Error('Failed to report violation');
+    }
+    
+    return response.data;
+  } catch (error) {
+    console.error('Error reporting violation:', error);
+    throw error;
+  }
+};
+
+// Fetch all traffic cameras
+export const fetchTrafficCameras = async (nearBikeLanes = true) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/cameras?nearBikeLanes=${nearBikeLanes}`);
+    
+    if (!response.data || !response.data.success) {
+      throw new Error('Failed to fetch traffic cameras');
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    console.error('Error fetching traffic cameras:', error);
+    throw error;
+  }
+};
+
+// Fetch a specific camera feed
+export const fetchCameraFeed = async (cameraId) => {
+  try {
+    const response = await axios.get(`${API_BASE_URL}/cameras/${cameraId}/feed`);
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(`Failed to fetch camera feed for camera ${cameraId}`);
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    console.error(`Error fetching camera feed for camera ${cameraId}:`, error);
+    throw error;
+  }
+};
+
+// Update violation status
+export const updateViolationStatus = async (id, status) => {
+  try {
+    const response = await axios.post(`${API_BASE_URL}/violations/${id}/status`, { status });
+    
+    if (!response.data || !response.data.success) {
+      throw new Error(`Failed to update violation status for violation ${id}`);
+    }
+    
+    return response.data.data;
+  } catch (error) {
+    console.error(`Error updating violation status for violation ${id}:`, error);
+    throw error;
+  }
+};

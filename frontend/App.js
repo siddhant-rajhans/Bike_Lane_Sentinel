@@ -11,6 +11,7 @@ import HomeScreen from './screens/HomeScreen';
 import MapScreen from './screens/MapScreen';
 import ViolationDetailsScreen from './screens/ViolationDetailsScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import ReportCameraScreen from './screens/ReportCameraScreen';
 
 // Create navigators
 const Stack = createStackNavigator();
@@ -48,9 +49,21 @@ function MainTabs() {
         tabBarInactiveTintColor: 'gray',
       })}
     >
-      <Tab.Screen name="Home" component={HomeScreen} />
-      <Tab.Screen name="Map" component={MapScreen} />
-      <Tab.Screen name="Settings" component={SettingsScreen} />
+      <Tab.Screen 
+        name="Home" 
+        component={HomeScreen} 
+        options={{ title: "Bike Lane Sentinel" }}
+      />
+      <Tab.Screen 
+        name="Map" 
+        component={MapScreen} 
+        options={{ title: "Violation Map" }}
+      />
+      <Tab.Screen 
+        name="Settings" 
+        component={SettingsScreen} 
+        options={{ title: "Settings" }}
+      />
     </Tab.Navigator>
   );
 }
@@ -70,6 +83,14 @@ export default function App() {
               name="ViolationDetails" 
               component={ViolationDetailsScreen} 
               options={{ title: 'Violation Details' }} 
+            />
+            <Stack.Screen 
+              name="ReportCamera" 
+              component={ReportCameraScreen} 
+              options={{ 
+                headerShown: false,
+                presentation: 'modal'
+              }} 
             />
           </Stack.Navigator>
           <StatusBar style="auto" />

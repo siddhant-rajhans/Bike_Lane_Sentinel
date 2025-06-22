@@ -20,10 +20,6 @@ const SettingsScreen = () => {
   
   return (
     <SafeAreaView style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title="Settings" />
-      </Appbar.Header>
-
       <ScrollView style={styles.scrollView}>
         <Title style={styles.title}>App Settings</Title>
         

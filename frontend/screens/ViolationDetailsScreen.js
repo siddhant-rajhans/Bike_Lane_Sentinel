@@ -10,12 +10,13 @@ const ViolationDetailsScreen = ({ route, navigation }) => {
     <SafeAreaView style={styles.container}>
       <Appbar.Header>
         <Appbar.BackAction onPress={() => navigation.goBack()} />
-        <Appbar.Content title={`Violation #${violation.id}`} />
+        <Appbar.Content title={`Violation #${violation.id.substring(0, 8)}...`} />
         <Appbar.Action icon="share" onPress={() => {}} />
       </Appbar.Header>
 
       <ScrollView style={styles.scrollView}>
-        <Card style={styles.card}>          <Card.Cover 
+        <Card style={styles.card}>
+          <Card.Cover 
             source={
               typeof violation.imageUrl === 'string' && violation.imageUrl.startsWith('data:')
                 ? { uri: violation.imageUrl }

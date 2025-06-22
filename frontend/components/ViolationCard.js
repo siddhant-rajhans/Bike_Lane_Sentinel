@@ -6,13 +6,19 @@ const ViolationCard = ({ violation, onPress }) => {
   // Handle different types of image sources
   let imageSource;
   
-  if (typeof violation.imageUrl === 'string' && violation.imageUrl.startsWith('data:')) {
-    imageSource = { uri: violation.imageUrl };
-  } else if (typeof violation.imageUrl === 'string') {
-    imageSource = { uri: violation.imageUrl };
+  if (typeof violation.imageUrl === 'string') {
+    // Add timestamp to prevent caching if it doesn't already have one
+    const imageUrl = violation.imageUrl.includes('?t=') 
+      ? violation.imageUrl 
+      : `${violation.imageUrl}?t=${Date.now()}`;
+    
+    imageSource = { uri: imageUrl };
   } else {
+    // If it's not a string, it might be an imported asset
     imageSource = violation.imageUrl;
   }
+  
+  console.log('Image source:', imageSource);
     
   return (
     <Card style={styles.card} onPress={onPress}>
@@ -48,11 +54,17 @@ const ViolationCard = ({ violation, onPress }) => {
 const styles = StyleSheet.create({
   card: {
     marginBottom: 16,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
     borderRadius: 8,
     elevation: 4,
   },
   cardImage: {
-    height: 140,
+    height: 200,
+    resizeMode: 'cover',
   },
   title: {
     fontSize: 16,

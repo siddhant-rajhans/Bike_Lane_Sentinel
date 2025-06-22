@@ -46,10 +46,6 @@ const MapScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title="Violation Map" />
-      </Appbar.Header>
-
       <View style={styles.mapContainer}>
         <MapView
           style={styles.map}
