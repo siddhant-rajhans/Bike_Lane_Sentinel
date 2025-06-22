@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, FlatList, StyleSheet, Alert } from 'react-native';
-import { Title, Paragraph, ActivityIndicator, Button, Snackbar } from 'react-native-paper';
+import { Title, Paragraph, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import ViolationCard from '../components/ViolationCard';
-import { fetchViolations, reportViolation } from '../services/api';
+import { fetchViolations } from '../services/api';
 
 const HomeScreen = ({ navigation, route }) => {
   const [violations, setViolations] = useState([]);
@@ -50,47 +50,12 @@ const HomeScreen = ({ navigation, route }) => {
   const handleViolationPress = (violation) => {
     navigation.navigate('ViolationDetails', { violation });
   };
-  
-  // Function to handle the report button press
-  const handleReportPress = () => {
-    // We'll use launchCamera function in a real app
-    // For the hackathon demo, let's show an alert with options
-    Alert.alert(
-      'Report Violation',
-      'How would you like to report a bike lane violation?', 
-      [
-        {
-          text: 'Take Photo',
-          onPress: () => {
-            // Navigate to our camera screen
-            navigation.navigate('ReportCamera');
-          }
-        },
-        {
-          text: 'Select from Camera Feed',
-          onPress: () => navigation.navigate('Map') // Navigate to the camera selection screen
-        },
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.contentContainer}>
         <View style={styles.headerContainer}>
           <Title style={styles.title}>Recent Violations</Title>
-          <Button 
-            mode="contained" 
-            icon="camera" 
-            onPress={handleReportPress}
-            style={styles.reportButton}
-          >
-            Report
-          </Button>
         </View>
         
         {loading ? (
@@ -147,10 +112,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 24,
     fontWeight: 'bold',
-  },
-  reportButton: {
-    backgroundColor: '#4CAF50',
-    marginLeft: 8,
   },
   listContainer: {
     paddingBottom: 16,

@@ -127,14 +127,19 @@ const getDemoViolations = () => {
   // Use the actual traffic camera URLs with timestamp to prevent caching
   const timestamp = Date.now();
   
-  // Use the camera ID specifically requested by the user
-  const liveCameraId = 'd4bbce49-b087-4524-a835-08cb253926a7';
-  const liveImageUrl = `https://webcams.nyctmc.org/api/cameras/${liveCameraId}/image?t=${timestamp}`;
+  // Use multiple different camera IDs for more variety
+  const liveCameraIds = [
+    'd4bbce49-b087-4524-a835-08cb253926a7',
+    '04589f46-2429-4e26-ad46-12a1198e9a9c',
+    '9dbb3101-9918-4b61-946f-a34d7c7c662b',
+    'e25e1dfa-97cd-4beb-bed2-006c43c208ce',
+    '8c781c69-18be-4e6d-9075-4e7f37375c84'
+  ];
   
   return [
     {
       id: '7f9c24a5-9f4b-4eaa-8a67-1a15d6173281',
-      imageUrl: liveImageUrl, // Use the requested live camera feed
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/${liveCameraIds[0]}/image?t=${timestamp}`,
       vehicleType: 'SUV',
       licensePlate: 'ABC1234',
       location: { lat: 40.7197, lng: -73.9566 },
@@ -148,12 +153,12 @@ const getDemoViolations = () => {
     },
     {
       id: '2a8b72c1-5d9e-4f00-b87e-3a912e6f90c5',
-      imageUrl: liveImageUrl + '&view=2', // Add view param to differentiate URLs and prevent caching
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/${liveCameraIds[1]}/image?t=${timestamp}`,
       vehicleType: 'Taxi',
       licensePlate: 'T505623C',
       location: { lat: 40.7282, lng: -73.9942 },
-      locationName: 'Bedford Ave at N 7th St, Brooklyn',
-      address: 'Bedford Ave at N 7th St, Brooklyn, NY',
+      locationName: 'W 57th St at 11th Ave, Manhattan',
+      address: 'W 57th St at 11th Ave, Manhattan, NY',
       date: formatDate(new Date(Date.now() - 3600000).toISOString()),
       time: formatTime(new Date(Date.now() - 3600000).toISOString()),
       timestamp: new Date(Date.now() - 3600000).toISOString(),
@@ -162,17 +167,45 @@ const getDemoViolations = () => {
     },
     {
       id: '5c9d3f4a-1e8b-4c7d-9a2f-6d8b5e7c9d3f',
-      imageUrl: liveImageUrl + '&view=3', // Different view param for a unique URL
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/${liveCameraIds[2]}/image?t=${timestamp}`,
       vehicleType: 'Delivery Van',
       licensePlate: 'XYZ9876',
       location: { lat: 40.7328, lng: -74.0027 },
-      locationName: 'Queens Blvd at 63rd Dr',
-      address: 'Queens Blvd at 63rd Dr, Queens, NY',
+      locationName: 'Broadway at W 46th St, Manhattan',
+      address: 'Broadway at W 46th St, Manhattan, NY',
       date: formatDate(new Date(Date.now() - 7200000).toISOString()),
       time: formatTime(new Date(Date.now() - 7200000).toISOString()),
       timestamp: new Date(Date.now() - 7200000).toISOString(),
       status: 'Reported',
       notes: 'Repeated violation - 3rd time this week.'
+    },
+    {
+      id: '3e7d2a8f-9c5b-4e3a-8d6f-1a2b3c4d5e6f',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/${liveCameraIds[3]}/image?t=${timestamp}`,
+      vehicleType: 'Police',
+      licensePlate: 'NYPD4527',
+      location: { lat: 40.7536, lng: -73.9805 },
+      locationName: '42nd St at 5th Ave, Manhattan',
+      address: '42nd St at 5th Ave, Manhattan, NY',
+      date: formatDate(new Date(Date.now() - 10800000).toISOString()),
+      time: formatTime(new Date(Date.now() - 10800000).toISOString()),
+      timestamp: new Date(Date.now() - 10800000).toISOString(),
+      status: 'Pending',
+      notes: 'Emergency stop.'
+    },
+    {
+      id: '4f5g6h7j-8k9l-0m1n-2o3p-4q5r6s7t8u9v',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/${liveCameraIds[4]}/image?t=${timestamp}`,
+      vehicleType: 'Truck',
+      licensePlate: 'TRK9876',
+      location: { lat: 40.6847, lng: -73.9773 },
+      locationName: 'Atlantic Ave at Flatbush Ave, Brooklyn',
+      address: 'Atlantic Ave at Flatbush Ave, Brooklyn, NY',
+      date: formatDate(new Date(Date.now() - 14400000).toISOString()),
+      time: formatTime(new Date(Date.now() - 14400000).toISOString()),
+      timestamp: new Date(Date.now() - 14400000).toISOString(),
+      status: 'Reported',
+      notes: 'Commercial delivery blocking bike lane.'
     }
   ];
 };
@@ -194,21 +227,45 @@ export const fetchViolations = async () => {
     }
     
     // Map the backend data to our frontend format
-    const violations = response.data.data.map(violation => ({
-      id: violation.id,
-      imageUrl: violation.imageUrl,
-      vehicleType: violation.vehicleType,
-      licensePlate: violation.licensePlate || 'Unknown',
-      location: violation.location,
-      locationName: getLocationName(violation.location, violation.cameraId, violation.cameraName, violation.area),
-      address: getAddress(violation.location, violation.cameraId, violation.cameraName, violation.area),
-      date: formatDate(violation.timestamp),
-      time: formatTime(violation.timestamp),
-      timestamp: violation.timestamp,
-      status: violation.status,
-      notes: violation.notes || '',
-      confidence: violation.confidence
-    }));
+    const timestamp = Date.now();
+    const liveCameraId = 'd4bbce49-b087-4524-a835-08cb253926a7';
+    
+    const violations = response.data.data.map((violation, index) => {
+      // Replace any S3 image URLs with live camera feeds
+      const liveCameraIds = [
+        'd4bbce49-b087-4524-a835-08cb253926a7', 
+        '04589f46-2429-4e26-ad46-12a1198e9a9c',
+        '9dbb3101-9918-4b61-946f-a34d7c7c662b',
+        'e25e1dfa-97cd-4beb-bed2-006c43c208ce',
+        '8c781c69-18be-4e6d-9075-4e7f37375c84'
+      ];
+      
+      let imageUrl = violation.imageUrl;
+      if (imageUrl.includes('s3.amazonaws.com') || !imageUrl.includes('webcams.nyctmc.org')) {
+        // Use a different camera ID for each violation to add variety
+        const cameraId = liveCameraIds[index % liveCameraIds.length];
+        imageUrl = `https://webcams.nyctmc.org/api/cameras/${cameraId}/image?t=${timestamp}&i=${index}`;
+      } else {
+        // Add cache-busting to ensure we get the latest image
+        imageUrl = `${violation.imageUrl}${violation.imageUrl.includes('?') ? '&' : '?'}t=${timestamp}&i=${index}`;
+      }
+      
+      return {
+        id: violation.id,
+        imageUrl: imageUrl,
+        vehicleType: violation.vehicleType,
+        licensePlate: violation.licensePlate || 'Unknown',
+        location: violation.location,
+        locationName: getLocationName(violation.location, violation.cameraId, violation.cameraName, violation.area),
+        address: getAddress(violation.location, violation.cameraId, violation.cameraName, violation.area),
+        date: formatDate(violation.timestamp),
+        time: formatTime(violation.timestamp),
+        timestamp: violation.timestamp,
+        status: violation.status,
+        notes: violation.notes || '',
+        confidence: violation.confidence
+      };
+    });
     
     return violations;
   } catch (error) {
@@ -384,13 +441,16 @@ export const reportViolation = async (violationData) => {
 
 // Get demo traffic cameras
 const getDemoCameras = () => {
+  const timestamp = Date.now();
+  
+  // Expanded list of NYC DOT traffic cameras with real IDs
   return [
     {
       id: 'd4bbce49-b087-4524-a835-08cb253926a7',
-      name: 'First Ave at E 42nd St (Live Feed)',
+      name: 'First Ave at E 42nd St',
       location: { lat: 40.7500, lng: -73.9707 },
       area: 'Manhattan',
-      imageUrl: `https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image?t=${Date.now()}`,
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/d4bbce49-b087-4524-a835-08cb253926a7/image?t=${timestamp}`,
       lastUpdated: new Date().toISOString(),
       status: 'online',
       nearBikeLane: true,
@@ -398,11 +458,35 @@ const getDemoCameras = () => {
       address: 'First Ave at E 42nd St, Manhattan, NY'
     },
     {
+      id: '04589f46-2429-4e26-ad46-12a1198e9a9c',
+      name: 'W 57th St at 11th Ave',
+      location: { lat: 40.7707, lng: -73.9936 },
+      area: 'Manhattan',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/04589f46-2429-4e26-ad46-12a1198e9a9c/image?t=${timestamp}`,
+      lastUpdated: new Date().toISOString(),
+      status: 'online',
+      nearBikeLane: true,
+      locationName: 'W 57th St at 11th Ave',
+      address: 'W 57th St at 11th Ave, Manhattan, NY'
+    },
+    {
+      id: '9dbb3101-9918-4b61-946f-a34d7c7c662b',
+      name: 'Broadway at W 46th St',
+      location: { lat: 40.7589, lng: -73.9851 },
+      area: 'Manhattan',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/9dbb3101-9918-4b61-946f-a34d7c7c662b/image?t=${timestamp}`,
+      lastUpdated: new Date().toISOString(),
+      status: 'online',
+      nearBikeLane: true,
+      locationName: 'Broadway at W 46th St',
+      address: 'Broadway at W 46th St, Manhattan, NY'
+    },
+    {
       id: '07717cda-a5e0-4496-b051-2d0c9f6a873f',
       name: 'Bedford Ave at N 7th St',
       location: { lat: 40.7197, lng: -73.9566 },
       area: 'Brooklyn',
-      imageUrl: `https://webcams.nyctmc.org/api/cameras/07717cda-a5e0-4496-b051-2d0c9f6a873f/image?t=${Date.now()}`,
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/07717cda-a5e0-4496-b051-2d0c9f6a873f/image?t=${timestamp}`,
       lastUpdated: new Date().toISOString(),
       status: 'online',
       nearBikeLane: true,
@@ -414,12 +498,36 @@ const getDemoCameras = () => {
       name: 'Queens Blvd at 63rd Dr',
       location: { lat: 40.7334, lng: -73.9272 },
       area: 'Queens',
-      imageUrl: `https://webcams.nyctmc.org/api/cameras/c4e4d38f-89e9-4a09-90ae-24b9ab4ff456/image?t=${Date.now()}`,
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/c4e4d38f-89e9-4a09-90ae-24b9ab4ff456/image?t=${timestamp}`,
       lastUpdated: new Date().toISOString(),
       status: 'online',
       nearBikeLane: true,
       locationName: 'Queens Blvd at 63rd Dr',
       address: 'Queens Blvd at 63rd Dr, Queens, NY'
+    },
+    {
+      id: 'e25e1dfa-97cd-4beb-bed2-006c43c208ce',
+      name: '42nd St at 5th Ave',
+      location: { lat: 40.7536, lng: -73.9805 },
+      area: 'Manhattan',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/e25e1dfa-97cd-4beb-bed2-006c43c208ce/image?t=${timestamp}`,
+      lastUpdated: new Date().toISOString(),
+      status: 'online',
+      nearBikeLane: true,
+      locationName: '42nd St at 5th Ave',
+      address: '42nd St at 5th Ave, Manhattan, NY'
+    },
+    {
+      id: '8c781c69-18be-4e6d-9075-4e7f37375c84',
+      name: 'Atlantic Ave at Flatbush Ave',
+      location: { lat: 40.6847, lng: -73.9773 },
+      area: 'Brooklyn',
+      imageUrl: `https://webcams.nyctmc.org/api/cameras/8c781c69-18be-4e6d-9075-4e7f37375c84/image?t=${timestamp}`,
+      lastUpdated: new Date().toISOString(),
+      status: 'online',
+      nearBikeLane: true,
+      locationName: 'Atlantic Ave at Flatbush Ave',
+      address: 'Atlantic Ave at Flatbush Ave, Brooklyn, NY'
     }
   ];
 };
@@ -599,3 +707,5 @@ export const updateViolationStatus = async (id, status) => {
     throw error;
   }
 };
+
+

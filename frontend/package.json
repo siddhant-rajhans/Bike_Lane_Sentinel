@@ -4,15 +4,14 @@
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "ios": "expo start --ios"
   },
   "dependencies": {
     "@react-navigation/bottom-tabs": "",
     "@react-navigation/native": "",
     "@react-navigation/stack": "",
     "axios": "",
-    "expo": "",
+    "expo": "53.0.0",
     "expo-camera": "~16.1.8",
     "expo-location": "~18.1.5",
     "expo-notifications": "",

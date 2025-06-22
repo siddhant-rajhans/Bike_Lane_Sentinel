@@ -1,211 +1,264 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, Platform } from 'react-native';
-// Import directly from expo-camera
-import { Camera } from 'expo-camera';
-import * as Location from 'expo-location';
+import { StyleSheet, View, Text, TouchableOpacity, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { IconButton, ActivityIndicator, Banner } from 'react-native-paper';
+import { Appbar, Button, ActivityIndicator, ProgressBar } from 'react-native-paper';
+import { Camera, CameraType } from 'expo-camera';
+import * as Location from 'expo-location';
 import { reportViolation } from '../services/api';
-
-// Define camera type constants for the specific version of Expo we're using
-const CAMERA_TYPE_BACK = 'back';
-const CAMERA_TYPE_FRONT = 'front';
 
 const ReportCameraScreen = ({ navigation }) => {
   const [hasPermission, setHasPermission] = useState(null);
-  const [type, setType] = useState(CAMERA_TYPE_BACK);
-  const [loading, setLoading] = useState(false);
   const [location, setLocation] = useState(null);
-  const [locationPermission, setLocationPermission] = useState(null);
-  const [locationError, setLocationError] = useState(null);
+  const [type, setType] = useState(CameraType.back);
+  const [photo, setPhoto] = useState(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const cameraRef = useRef(null);
-
+  
+  // Request camera and location permissions
   useEffect(() => {
     (async () => {
       try {
-        // Request camera permissions
-        try {
-          const { status } = await Camera.requestCameraPermissionsAsync();
-          console.log('Camera permissions granted:', status === 'granted');
-          setHasPermission(status === 'granted');
-        } catch (cameraErr) {
-          console.error('Error requesting camera permissions:', cameraErr);
-          setHasPermission(false);
-        }
-        // Request location permissions
-        const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
-        setLocationPermission(locationStatus === 'granted');
+        // Request camera permission
+        const { status: cameraStatus } = await Camera.requestCameraPermissionsAsync();
+        setHasPermission(cameraStatus === 'granted');
         
-        // If location permission is granted, get the current location
+        if (cameraStatus !== 'granted') {
+          Alert.alert(
+            'Camera permission required', 
+            'Please grant camera permissions to report violations.'
+          );
+        }
+        
+        // Request location permission
+        const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+        
         if (locationStatus === 'granted') {
-          try {
-            const currentLocation = await Location.getCurrentPositionAsync({
-              accuracy: Location.Accuracy.Balanced,
-            });
-            setLocation(currentLocation.coords);
-          } catch (locationErr) {
-            setLocationError('Could not get your location. Reports will still work without location data.');
-            console.error('Error getting location:', locationErr);
-          }
+          const currentLocation = await Location.getCurrentPositionAsync({});
+          setLocation({
+            lat: currentLocation.coords.latitude,
+            lng: currentLocation.coords.longitude
+          });
         }
       } catch (err) {
-        console.error('Error in permission setup:', err);
+        console.error('Error requesting permissions:', err);
+        Alert.alert('Error', 'Could not access camera or location. Please check your permissions.');
       }
     })();
   }, []);
 
-  const handleCapture = async () => {
-    if (!cameraRef.current) return;
-    
-    try {
-      setLoading(true);
-      // Take the photo with higher quality
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.8,
-        base64: false, // We'll use the URI instead
-        exif: true,
-        skipProcessing: false
-      });
-      
-      // Process the captured image
-      console.log('Photo captured successfully');
-      
-      // Inform user we're analyzing the image
-      Alert.alert(
-        'Analyzing image...',
-        'Looking for vehicles in bike lanes',
-        [{ text: 'OK' }]
-      );
-      
+  // Toggle between front and back camera
+  const toggleCameraType = () => {
+    setType(type === CameraType.back ? CameraType.front : CameraType.back);
+  };
+  
+  // Take a photo
+  const takePicture = async () => {
+    if (cameraRef.current) {
       try {
-        // Prepare the request with image and location if available
-        const reportData = { 
-          image: { uri: photo.uri }
-        };
+        const photo = await cameraRef.current.takePictureAsync({
+          quality: 0.8,
+          exif: true,
+          skipProcessing: false
+        });
         
-        // Add location data if available
-        if (location) {
-          reportData.location = {
-            lat: location.latitude,
-            lng: location.longitude
-          };
-        }
-        
-        // Call the API with the image and location data
-        const response = await reportViolation(reportData);
-        
-        setLoading(false);
-        
-        // Check if a violation was detected
-        if (response.success && response.data && response.data.hasCarsInBikeLane) {
-          Alert.alert(
-            'Violation Detected',
-            `${response.data.vehicleType || 'Vehicle'} detected in bike lane. Report has been submitted.`,
-            [
-              {
-                text: 'OK',
-                onPress: () => {
-                  // Navigate back to home screen with success message and violation ID
-                  navigation.navigate('Main', {
-                    screen: 'Home',
-                    params: { 
-                      reportSuccess: true, 
-                      violationId: response.data.violationId 
-                    }
-                  });
-                }
-              }
-            ]
-          );
-        } else {
-          // No violation was detected
-          Alert.alert(
-            'No Violation Detected',
-            'No vehicles were detected in the bike lane.',
-            [
-              {
-                text: 'OK',
-                onPress: () => navigation.goBack()
-              }
-            ]
-          );
-        }
-      } catch (error) {
-        console.error('Error reporting violation:', error);
-        setLoading(false);
-        Alert.alert('Error', 'Failed to report violation. Please try again.');
+        setPhoto(photo.uri);
+        console.log('Photo taken:', photo.uri);
+      } catch (err) {
+        console.error('Error taking picture:', err);
+        Alert.alert('Error', 'Failed to take picture. Please try again.');
       }
-    } catch (error) {
-      console.error('Error capturing image:', error);
-      setLoading(false);
-      Alert.alert('Error', 'Failed to capture image. Please try again.');
     }
   };
+  
+  // Submit the violation report
+  const submitReport = async () => {
+    if (!photo) {
+      Alert.alert('Error', 'No photo taken. Please take a photo first.');
+      return;
+    }
+    
+    setAnalyzing(true);
+    
+    // Simulate analysis progress for UX feedback
+    const progressInterval = setInterval(() => {
+      setProgress(prev => {
+        if (prev >= 0.9) {
+          clearInterval(progressInterval);
+          return 0.9;
+        }
+        return prev + 0.1;
+      });
+    }, 500);
+    
+    try {
+      // Create a form data object to submit
+      const violationData = {
+        image: {
+          uri: photo,
+          type: 'image/jpeg',
+          name: 'violation.jpg'
+        }
+      };
+      
+      if (location) {
+        violationData.location = location;
+      }
+      
+      // Send to backend API
+      const result = await reportViolation(violationData);
+      
+      clearInterval(progressInterval);
+      setProgress(1);
+      
+      if (result && result.success) {
+        // Check if a violation was actually detected
+        if (result.data && result.data.hasCarsInBikeLane) {
+          Alert.alert(
+            'Violation Detected', 
+            `${result.data.vehicleType || 'Vehicle'} detected in bike lane. Report submitted successfully!`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        } else {
+          // No violation detected
+          Alert.alert(
+            'No Violation Detected', 
+            'Our AI did not detect any vehicles in the bike lane. Please try again with a clearer photo.',
+            [{ text: 'OK', onPress: () => setAnalyzing(false) }]
+          );
+        }
+      } else {
+        throw new Error('Submission failed');
+      }
+    } catch (err) {
+      clearInterval(progressInterval);
+      setProgress(0);
+      console.error('Error submitting report:', err);
+      
+      Alert.alert(
+        'Error', 
+        'Failed to submit report. Please try again.',
+        [{ text: 'OK', onPress: () => setAnalyzing(false) }]
+      );
+    }
+  };
+  
+  // Reset and take another photo
+  const retakePhoto = () => {
+    setPhoto(null);
+  };
 
+  // If permissions haven't been determined yet, show a loading indicator
   if (hasPermission === null) {
-    return <View style={styles.container}><Text>Requesting camera permission...</Text></View>;
+    return (
+      <SafeAreaView style={styles.container}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.Content title="Report Violation" />
+        </Appbar.Header>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4CAF50" />
+          <Text style={styles.text}>Requesting permissions...</Text>
+        </View>
+      </SafeAreaView>
+    );
   }
   
+  // If permissions denied, show an error message
   if (hasPermission === false) {
-    return <View style={styles.container}><Text>No access to camera</Text></View>;
+    return (
+      <SafeAreaView style={styles.container}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => navigation.goBack()} />
+          <Appbar.Content title="Report Violation" />
+        </Appbar.Header>
+        <View style={styles.messageContainer}>
+          <Text style={styles.errorText}>No access to camera</Text>
+          <Text style={styles.text}>
+            Please grant camera permissions in your device settings to report violations.
+          </Text>
+          <Button 
+            mode="contained" 
+            onPress={() => navigation.goBack()}
+            style={styles.button}
+          >
+            Go Back
+          </Button>
+        </View>
+      </SafeAreaView>
+    );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {locationError && (
-        <Banner
-          visible={true}
-          icon="map-marker-off"
-          actions={[
-            {
-              label: 'OK',
-              onPress: () => setLocationError(null),
-            },
-          ]}
-        >
-          {locationError}
-        </Banner>
-      )}
-      <Camera style={styles.camera} type={type} ref={cameraRef}>
-        <View style={styles.overlay}>
-          {/* Close button */}
-          <IconButton
-            icon="close"
-            size={30}
-            color="white"
-            style={styles.closeButton}
-            onPress={() => navigation.goBack()}
-          />
-          
-          {/* Capture button */}
-          <View style={styles.controlsContainer}>
-            {loading ? (
-              <ActivityIndicator size="large" color="#FFFFFF" />
-            ) : (
-              <TouchableOpacity 
-                style={styles.captureButton} 
-                onPress={handleCapture}
-                activeOpacity={0.6}
-              >
-                <View style={styles.captureButtonInner} />
-              </TouchableOpacity>
-            )}
+      <Appbar.Header>
+        <Appbar.BackAction onPress={() => navigation.goBack()} />
+        <Appbar.Content title={photo ? 'Review Photo' : 'Take Photo'} />
+      </Appbar.Header>
+      
+      <View style={styles.contentContainer}>
+        {analyzing ? (
+          <View style={styles.analyzingContainer}>
+            <Text style={styles.analyzingText}>Analyzing image...</Text>
+            <ProgressBar progress={progress} color="#4CAF50" style={styles.progressBar} />
+            <Text style={styles.text}>
+              Using AI to detect bike lane violations...
+            </Text>
           </View>
-          
-          {/* Flip camera button */}
-          <IconButton
-            icon="camera-flip"
-            size={30}
-            color="white"
-            style={styles.flipButton}
-            onPress={() => {
-              setType(currentType => 
-                currentType === CAMERA_TYPE_BACK ? CAMERA_TYPE_FRONT : CAMERA_TYPE_BACK
-              );
-            }}
-          />
-        </View>
-      </Camera>
+        ) : photo ? (
+          // Photo review mode
+          <View style={styles.reviewContainer}>
+            <Image source={{ uri: photo }} style={styles.preview} />
+            <View style={styles.buttonContainer}>
+              <Button 
+                mode="outlined" 
+                onPress={retakePhoto}
+                style={styles.button}
+              >
+                Retake
+              </Button>
+              <Button 
+                mode="contained" 
+                onPress={submitReport}
+                style={styles.button}
+              >
+                Report Violation
+              </Button>
+            </View>
+          </View>
+        ) : (
+          // Camera view mode
+          <View style={styles.cameraContainer}>
+            <Camera
+              style={styles.camera}
+              type={type}
+              ref={cameraRef}
+            >
+              <View style={styles.cameraControlsContainer}>
+                <TouchableOpacity
+                  style={styles.flipButton}
+                  onPress={toggleCameraType}
+                >
+                  <Text style={styles.flipText}>Flip</Text>
+                </TouchableOpacity>
+              </View>
+            </Camera>
+            
+            <View style={styles.captureButtonContainer}>
+              <TouchableOpacity
+                style={styles.captureButton}
+                onPress={takePicture}
+              />
+            </View>
+            
+            <View style={styles.instructions}>
+              <Text style={styles.instructionText}>
+                Position camera to show vehicle in bike lane
+              </Text>
+            </View>
+          </View>
+        )}
+      </View>
     </SafeAreaView>
   );
 };
@@ -213,47 +266,115 @@ const ReportCameraScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  contentContainer: {
+    flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  cameraContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
   },
   camera: {
     flex: 1,
   },
-  overlay: {
+  cameraControlsContainer: {
     flex: 1,
     backgroundColor: 'transparent',
-    justifyContent: 'space-between',
-    padding: 20,
-  },
-  closeButton: {
-    alignSelf: 'flex-start',
-    marginTop: 10,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    marginRight: 20,
   },
   flipButton: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    padding: 10,
+    borderRadius: 5,
   },
-  controlsContainer: {
+  flipText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  captureButtonContainer: {
     position: 'absolute',
-    bottom: 40,
+    bottom: 30,
     alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   captureButton: {
     width: 70,
     height: 70,
     borderRadius: 35,
+    backgroundColor: '#fff',
     borderWidth: 5,
-    borderColor: 'white',
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#4CAF50',
   },
-  captureButtonInner: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'white',
+  instructions: {
+    position: 'absolute',
+    bottom: 120,
+    width: '100%',
+    alignItems: 'center',
+  },
+  instructionText: {
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    color: 'white',
+    padding: 10,
+    borderRadius: 5,
+    fontSize: 14,
+  },
+  reviewContainer: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  preview: {
+    flex: 1,
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    padding: 20,
+  },
+  button: {
+    margin: 10,
+    paddingHorizontal: 10,
+  },
+  analyzingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  analyzingText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  progressBar: {
+    width: '80%',
+    height: 10,
+    marginBottom: 20,
+    borderRadius: 5,
+  },
+  text: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginVertical: 10,
+  },
+  errorText: {
+    fontSize: 20,
+    color: '#F44336',
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
 });
 
